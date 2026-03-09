@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"tracktora-backend/internal/clients"
 	"tracktora-backend/internal/models"
 	"tracktora-backend/internal/repository"
 
@@ -144,4 +145,23 @@ func GetApplicationStats(c *fiber.Ctx) error {
 
 	// 3. Return the stats!
 	return c.Status(fiber.StatusOK).JSON(stats)
+}
+
+func GetExplorePage(c *fiber.Ctx) error {
+	search := c.Query("search")
+	location := c.Query("location")
+	// Convert page string to int, default to 1
+	page := c.QueryInt("page", 1)
+
+	jobs, err := clients.FetchLiveJobs(search, location, page)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to fetch jobs",
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"page":         page,
+		"explore_feed": jobs,
+	})
 }

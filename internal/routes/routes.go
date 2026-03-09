@@ -34,4 +34,5 @@ func Setup(app *fiber.App) {
 	// User Profile Routes
 	protectedGroup.Get("/profile", handlers.GetProfile)
 	protectedGroup.Put("/profile/update", handlers.UpdateProfile)
+	protectedGroup.Get("/explore", handlers.GetExplorePage)
 }
