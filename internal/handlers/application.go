@@ -165,3 +165,36 @@ func GetExplorePage(c *fiber.Ctx) error {
 		"explore_feed": jobs,
 	})
 }
+
+// SaveExternalJob handles saving a listing from the Explore feed into the user's tracker
+func SaveExternalJob(c *fiber.Ctx) error {
+	// 1. Grab the secure user_id
+	userID := c.Locals("user_id").(string)
+
+	// 2. Parse the job details sent from the frontend
+	// We use the same model we used for manual entry
+	req := new(models.CreateApplicationRequest)
+	if err := c.BodyParser(req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid job data",
+		})
+	}
+
+	// 3. Set a default status for saved jobs
+	if req.Status == "" {
+		req.Status = "Wishlist"
+	}
+
+	// 4. Use your existing repository function to save it!
+	appID, err := repository.CreateApplication(userID, req)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to save listing to your tracker",
+		})
+	}
+
+	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
+		"message":        "Job saved to your Wishlist!",
+		"application_id": appID,
+	})
+}

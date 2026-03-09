@@ -35,4 +35,5 @@ func Setup(app *fiber.App) {
 	protectedGroup.Get("/profile", handlers.GetProfile)
 	protectedGroup.Put("/profile/update", handlers.UpdateProfile)
 	protectedGroup.Get("/explore", handlers.GetExplorePage)
+	protectedGroup.Post("/explore/save", handlers.SaveExternalJob)
 }
