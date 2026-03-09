@@ -118,3 +118,19 @@ func UpdateApplication(userID, appID string, req *models.UpdateApplicationReques
 
 	return nil
 }
+
+// DeleteApplication removes an application from the database
+func DeleteApplication(userID, appID string) error {
+	query := `DELETE FROM applications WHERE id = $1 AND user_id = $2`
+
+	result, err := database.DB.Exec(context.Background(), query, appID, userID)
+	if err != nil {
+		return errors.New("failed to delete application")
+	}
+
+	if result.RowsAffected() == 0 {
+		return errors.New("application not found or you don't have permission to delete it")
+	}
+
+	return nil
+}

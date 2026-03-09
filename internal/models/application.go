@@ -36,3 +36,8 @@ type UpdateApplicationRequest struct {
 	Notes       string `json:"notes"`
 	AppliedDate string `json:"applied_date"`
 }
+
+// DeleteApplicationRequest defines what the frontend will send to delete an app
+type DeleteApplicationRequest struct {
+	ID string `json:"id"`
+}

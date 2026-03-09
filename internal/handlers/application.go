@@ -95,3 +95,36 @@ func UpdateApplication(c *fiber.Ctx) error {
 		"message": "Application updated successfully",
 	})
 }
+
+// DeleteApplication handles removing a job application
+func DeleteApplication(c *fiber.Ctx) error {
+	// 1. Grab the secure user_id
+	userID := c.Locals("user_id").(string)
+
+	// 2. Parse the JSON body to get the application ID
+	req := new(models.DeleteApplicationRequest)
+	if err := c.BodyParser(req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid request payload",
+		})
+	}
+
+	if req.ID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Application ID is required in the body",
+		})
+	}
+
+	// 3. Send to the repository to delete
+	err := repository.DeleteApplication(userID, req.ID)
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	// 4. Return success
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"message": "Application deleted successfully",
+	})
+}
