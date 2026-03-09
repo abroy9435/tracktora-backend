@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"fmt"
+	"math/rand"
 	"os"
 	"time"
 
@@ -92,5 +94,64 @@ func Login(c *fiber.Ctx) error {
 		"message": "Login successful",
 		"token":   tokenString,
 		"user":    user,
+	})
+}
+
+// Helper to generate a 6-digit random code
+func generateRandomCode() string {
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+	return fmt.Sprintf("%06d", r.Intn(1000000))
+}
+
+// ForgotPassword generates a dynamic random code
+func ForgotPassword(c *fiber.Ctx) error {
+	type Request struct {
+		Email string `json:"email"`
+	}
+	req := new(Request)
+	if err := c.BodyParser(req); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "Invalid email format"})
+	}
+
+	// Generate the random 6-digit code
+	resetCode := generateRandomCode()
+
+	if err := repository.StoreResetToken(req.Email, resetCode); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	// Returning the dynamic code in the response for testing
+	return c.Status(200).JSON(fiber.Map{
+		"message": "Reset code generated. Check your email (simulated).",
+		"code":    resetCode,
+	})
+}
+
+// internal/handlers/auth.go
+
+// ResetPassword handles the final password change using the token
+func ResetPassword(c *fiber.Ctx) error {
+	type Request struct {
+		Token       string `json:"token"`
+		NewPassword string `json:"new_password"`
+	}
+	req := new(Request)
+	if err := c.BodyParser(req); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "Invalid request body"})
+	}
+
+	// Hash the new password
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "Failed to secure new password"})
+	}
+
+	// Call repository to verify token and update DB
+	if err := repository.ResetPassword(req.Token, string(hashedPassword)); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	return c.Status(200).JSON(fiber.Map{
+		"message": "Password updated successfully. You can now login.",
 	})
 }

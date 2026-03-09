@@ -21,6 +21,8 @@ func Setup(app *fiber.App) {
 	authGroup := app.Group("/api/auth")
 	authGroup.Post("/register", handlers.Register)
 	authGroup.Post("/login", handlers.Login)
+	authGroup.Post("/forgot-password", handlers.ForgotPassword)
+	authGroup.Post("/reset-password", handlers.ResetPassword)
 
 	// 3. Protected Routes (Requires JWT)
 	protectedGroup := app.Group("/api", middleware.RequireAuth)
