@@ -61,3 +61,37 @@ func GetApplications(c *fiber.Ctx) error {
 		"applications": apps,
 	})
 }
+
+// UpdateApplication handles modifying an existing job application
+func UpdateApplication(c *fiber.Ctx) error {
+	// 1. Grab the secure user_id from our JWT bouncer
+	userID := c.Locals("user_id").(string)
+
+	// 2. Parse the incoming JSON body
+	req := new(models.UpdateApplicationRequest)
+	if err := c.BodyParser(req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid request payload",
+		})
+	}
+
+	// 3. Make sure they actually sent an ID in the body!
+	if req.ID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Application ID is required in the body",
+		})
+	}
+
+	// 4. Send to the repository (using req.ID instead of the URL param)
+	err := repository.UpdateApplication(userID, req.ID, req)
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	// 5. Return success!
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"message": "Application updated successfully",
+	})
+}

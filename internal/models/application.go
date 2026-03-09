@@ -25,3 +25,14 @@ type Application struct {
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
 }
+
+// UpdateApplicationRequest defines what the frontend will send to update an app
+type UpdateApplicationRequest struct {
+	ID          string `json:"id"`
+	CompanyName string `json:"company_name"`
+	RoleTitle   string `json:"role_title"`
+	Status      string `json:"status"`
+	JobURL      string `json:"job_url"`
+	Notes       string `json:"notes"`
+	AppliedDate string `json:"applied_date"`
+}

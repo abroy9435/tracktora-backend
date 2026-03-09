@@ -84,3 +84,37 @@ func GetUserApplications(userID string) ([]models.Application, error) {
 
 	return applications, nil
 }
+
+// UpdateApplication modifies an existing application in the database
+func UpdateApplication(userID, appID string, req *models.UpdateApplicationRequest) error {
+	query := `
+		UPDATE applications 
+		SET company_name = $1, role_title = $2, status = $3, job_url = $4, notes = $5, applied_date = NULLIF($6, '')::DATE, updated_at = CURRENT_TIMESTAMP
+		WHERE id = $7 AND user_id = $8
+	`
+
+	// database.DB.Exec is used when we don't need to return any rows, just run a command
+	result, err := database.DB.Exec(
+		context.Background(),
+		query,
+		req.CompanyName,
+		req.RoleTitle,
+		req.Status,
+		req.JobURL,
+		req.Notes,
+		req.AppliedDate,
+		appID,
+		userID,
+	)
+
+	if err != nil {
+		return errors.New("failed to update application")
+	}
+
+	// Check if any row was actually updated (prevents updating non-existent apps)
+	if result.RowsAffected() == 0 {
+		return errors.New("application not found or you don't have permission to update it")
+	}
+
+	return nil
+}
