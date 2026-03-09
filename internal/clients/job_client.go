@@ -13,10 +13,12 @@ import (
 // AdzunaResponse matches the JSON structure from the Adzuna API documentation
 type AdzunaResponse struct {
 	Results []struct {
-		Title       string `json:"title"`
-		Description string `json:"description"`
-		RedirectURL string `json:"redirect_url"`
-		Created     string `json:"created"`
+		Title       string  `json:"title"`
+		Description string  `json:"description"`
+		RedirectURL string  `json:"redirect_url"`
+		Created     string  `json:"created"`
+		SalaryMin   float64 `json:"salary_min"`
+		SalaryMax   float64 `json:"salary_max"`
 		Company     struct {
 			DisplayName string `json:"display_name"`
 		} `json:"company"`
@@ -27,27 +29,30 @@ type AdzunaResponse struct {
 }
 
 // FetchLiveJobs handles fetching and paginating results from Adzuna India
-func FetchLiveJobs(keyword, location string, page int) ([]models.ExternalJob, error) {
+func FetchLiveJobs(keyword, location string, page int, salaryMin int) ([]models.ExternalJob, error) {
 	appID := os.Getenv("ADZUNA_APP_ID")
 	appKey := os.Getenv("ADZUNA_APP_KEY")
 
-	// Default to 'internship' if keyword is empty
 	if keyword == "" {
 		keyword = "internship"
 	}
 
-	// Ensure page is at least 1
 	if page < 1 {
 		page = 1
 	}
 
-	// We limit results_per_page to 15 to keep the response light and fast
+	// Build base URL with pagination and keyword
 	baseUrl := fmt.Sprintf("https://api.adzuna.com/v1/api/jobs/in/search/%d?app_id=%s&app_key=%s&results_per_page=15&what=%s",
 		page, appID, appKey, url.QueryEscape(keyword))
 
-	// Add location filter if provided
+	// Append location if exists
 	if location != "" {
 		baseUrl = fmt.Sprintf("%s&where=%s", baseUrl, url.QueryEscape(location))
+	}
+
+	// Append salary filter if greater than 0
+	if salaryMin > 0 {
+		baseUrl = fmt.Sprintf("%s&salary_min=%d", baseUrl, salaryMin)
 	}
 
 	client := &http.Client{Timeout: 10 * time.Second}
@@ -76,6 +81,8 @@ func FetchLiveJobs(keyword, location string, page int) ([]models.ExternalJob, er
 			ApplyURL:    item.RedirectURL,
 			Source:      "Adzuna India",
 			PublishedAt: item.Created,
+			SalaryMin:   item.SalaryMin,
+			SalaryMax:   item.SalaryMax,
 		})
 	}
 

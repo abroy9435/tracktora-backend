@@ -54,11 +54,13 @@ type ApplicationStats struct {
 
 // ExternalJob represents a real-world job posting from an external API
 type ExternalJob struct {
-	Title       string `json:"title"`
-	Company     string `json:"company"`
-	Location    string `json:"location"`
-	Description string `json:"description"` // We'll keep this short
-	ApplyURL    string `json:"apply_url"`
-	Source      string `json:"source"`
-	PublishedAt string `json:"published_at"`
+	Title       string  `json:"title"`
+	Company     string  `json:"company"`
+	Location    string  `json:"location"`
+	Description string  `json:"description"`
+	ApplyURL    string  `json:"apply_url"`
+	Source      string  `json:"source"`
+	PublishedAt string  `json:"published_at"`
+	SalaryMin   float64 `json:"salary_min"` // New
+	SalaryMax   float64 `json:"salary_max"` // New
 }

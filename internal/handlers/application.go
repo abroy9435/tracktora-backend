@@ -10,26 +10,21 @@ import (
 
 // CreateApplication handles adding a new job application
 func CreateApplication(c *fiber.Ctx) error {
-	// 1. Grab the user_id that the JWT middleware securely saved for us
 	userID := c.Locals("user_id").(string)
-
 	req := new(models.CreateApplicationRequest)
 
-	// 2. Parse the incoming JSON body
 	if err := c.BodyParser(req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Invalid request payload",
 		})
 	}
 
-	// 3. Quick validation
 	if req.CompanyName == "" || req.RoleTitle == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Company name and role title are required",
 		})
 	}
 
-	// 4. Send to the repository to save in PostgreSQL
 	appID, err := repository.CreateApplication(userID, req)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -37,7 +32,6 @@ func CreateApplication(c *fiber.Ctx) error {
 		})
 	}
 
-	// 5. Return success!
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
 		"message":        "Application tracked successfully",
 		"application_id": appID,
@@ -46,10 +40,8 @@ func CreateApplication(c *fiber.Ctx) error {
 
 // GetApplications fetches all applications for the logged-in user
 func GetApplications(c *fiber.Ctx) error {
-	// 1. Grab the secure user_id
 	userID := c.Locals("user_id").(string)
 
-	// 2. Fetch from the database
 	apps, err := repository.GetUserApplications(userID)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -57,7 +49,6 @@ func GetApplications(c *fiber.Ctx) error {
 		})
 	}
 
-	// 3. Return the list!
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"applications": apps,
 	})
@@ -65,25 +56,21 @@ func GetApplications(c *fiber.Ctx) error {
 
 // UpdateApplication handles modifying an existing job application
 func UpdateApplication(c *fiber.Ctx) error {
-	// 1. Grab the secure user_id from our JWT bouncer
 	userID := c.Locals("user_id").(string)
-
-	// 2. Parse the incoming JSON body
 	req := new(models.UpdateApplicationRequest)
+
 	if err := c.BodyParser(req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Invalid request payload",
 		})
 	}
 
-	// 3. Make sure they actually sent an ID in the body!
 	if req.ID == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Application ID is required in the body",
 		})
 	}
 
-	// 4. Send to the repository (using req.ID instead of the URL param)
 	err := repository.UpdateApplication(userID, req.ID, req)
 	if err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
@@ -91,7 +78,6 @@ func UpdateApplication(c *fiber.Ctx) error {
 		})
 	}
 
-	// 5. Return success!
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"message": "Application updated successfully",
 	})
@@ -99,11 +85,9 @@ func UpdateApplication(c *fiber.Ctx) error {
 
 // DeleteApplication handles removing a job application
 func DeleteApplication(c *fiber.Ctx) error {
-	// 1. Grab the secure user_id
 	userID := c.Locals("user_id").(string)
-
-	// 2. Parse the JSON body to get the application ID
 	req := new(models.DeleteApplicationRequest)
+
 	if err := c.BodyParser(req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Invalid request payload",
@@ -116,7 +100,6 @@ func DeleteApplication(c *fiber.Ctx) error {
 		})
 	}
 
-	// 3. Send to the repository to delete
 	err := repository.DeleteApplication(userID, req.ID)
 	if err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
@@ -124,7 +107,6 @@ func DeleteApplication(c *fiber.Ctx) error {
 		})
 	}
 
-	// 4. Return success
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"message": "Application deleted successfully",
 	})
@@ -132,10 +114,8 @@ func DeleteApplication(c *fiber.Ctx) error {
 
 // GetApplicationStats handles fetching the user's dashboard statistics
 func GetApplicationStats(c *fiber.Ctx) error {
-	// 1. Grab the secure user_id
 	userID := c.Locals("user_id").(string)
 
-	// 2. Fetch stats from the database
 	stats, err := repository.GetApplicationStats(userID)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -143,17 +123,17 @@ func GetApplicationStats(c *fiber.Ctx) error {
 		})
 	}
 
-	// 3. Return the stats!
 	return c.Status(fiber.StatusOK).JSON(stats)
 }
 
+// GetExplorePage returns live ads from Adzuna with advanced filtering
 func GetExplorePage(c *fiber.Ctx) error {
 	search := c.Query("search")
 	location := c.Query("location")
-	// Convert page string to int, default to 1
 	page := c.QueryInt("page", 1)
+	salaryMin := c.QueryInt("salary", 0)
 
-	jobs, err := clients.FetchLiveJobs(search, location, page)
+	jobs, err := clients.FetchLiveJobs(search, location, page, salaryMin)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to fetch jobs",
@@ -162,30 +142,26 @@ func GetExplorePage(c *fiber.Ctx) error {
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"page":         page,
+		"salary_query": salaryMin,
 		"explore_feed": jobs,
 	})
 }
 
 // SaveExternalJob handles saving a listing from the Explore feed into the user's tracker
 func SaveExternalJob(c *fiber.Ctx) error {
-	// 1. Grab the secure user_id
 	userID := c.Locals("user_id").(string)
-
-	// 2. Parse the job details sent from the frontend
-	// We use the same model we used for manual entry
 	req := new(models.CreateApplicationRequest)
+
 	if err := c.BodyParser(req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Invalid job data",
 		})
 	}
 
-	// 3. Set a default status for saved jobs
 	if req.Status == "" {
 		req.Status = "Wishlist"
 	}
 
-	// 4. Use your existing repository function to save it!
 	appID, err := repository.CreateApplication(userID, req)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
