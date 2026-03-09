@@ -134,3 +134,35 @@ func DeleteApplication(userID, appID string) error {
 
 	return nil
 }
+
+// GetApplicationStats fetches the aggregate counts for a user's dashboard
+func GetApplicationStats(userID string) (*models.ApplicationStats, error) {
+	var stats models.ApplicationStats
+
+	query := `
+		SELECT 
+			COUNT(*) as total,
+			COUNT(CASE WHEN status = 'Wishlist' THEN 1 END) as wishlist,
+			COUNT(CASE WHEN status = 'Applied' THEN 1 END) as applied,
+			COUNT(CASE WHEN status = 'Interviewing' THEN 1 END) as interviewing,
+			COUNT(CASE WHEN status = 'Offer' THEN 1 END) as offer,
+			COUNT(CASE WHEN status = 'Rejected' THEN 1 END) as rejected
+		FROM applications
+		WHERE user_id = $1
+	`
+
+	err := database.DB.QueryRow(context.Background(), query, userID).Scan(
+		&stats.Total,
+		&stats.Wishlist,
+		&stats.Applied,
+		&stats.Interviewing,
+		&stats.Offer,
+		&stats.Rejected,
+	)
+
+	if err != nil {
+		return nil, errors.New("failed to fetch application stats")
+	}
+
+	return &stats, nil
+}

@@ -41,3 +41,13 @@ type UpdateApplicationRequest struct {
 type DeleteApplicationRequest struct {
 	ID string `json:"id"`
 }
+
+// ApplicationStats represents the user's dashboard statistics
+type ApplicationStats struct {
+	Total        int `json:"total"`
+	Wishlist     int `json:"wishlist"`
+	Applied      int `json:"applied"`
+	Interviewing int `json:"interviewing"`
+	Offer        int `json:"offer"`
+	Rejected     int `json:"rejected"`
+}

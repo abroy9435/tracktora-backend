@@ -128,3 +128,20 @@ func DeleteApplication(c *fiber.Ctx) error {
 		"message": "Application deleted successfully",
 	})
 }
+
+// GetApplicationStats handles fetching the user's dashboard statistics
+func GetApplicationStats(c *fiber.Ctx) error {
+	// 1. Grab the secure user_id
+	userID := c.Locals("user_id").(string)
+
+	// 2. Fetch stats from the database
+	stats, err := repository.GetApplicationStats(userID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to fetch dashboard statistics",
+		})
+	}
+
+	// 3. Return the stats!
+	return c.Status(fiber.StatusOK).JSON(stats)
+}
