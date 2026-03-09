@@ -33,9 +33,12 @@ func Setup(app *fiber.App) {
 	protectedGroup.Get("/applications/stats", handlers.GetApplicationStats)
 	protectedGroup.Put("/applications/update", handlers.UpdateApplication)
 	protectedGroup.Delete("/applications/delete", handlers.DeleteApplication)
+
 	// User Profile Routes
 	protectedGroup.Get("/profile", handlers.GetProfile)
 	protectedGroup.Put("/profile/update", handlers.UpdateProfile)
+	protectedGroup.Put("/profile/privacy", handlers.UpdatePrivacySettings)
+
 	// Explore Feed (Adzuna)
 	protectedGroup.Get("/explore", handlers.GetExplorePage)
 	protectedGroup.Post("/explore/save", handlers.SaveExternalJob)

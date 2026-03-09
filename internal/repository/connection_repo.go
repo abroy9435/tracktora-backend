@@ -70,17 +70,33 @@ func UpdateFriendStatus(userID, senderID, newStatus string) error {
 
 // GetFriendStats: Verify 'accepted' status before showing data
 func GetFriendStats(userID, friendID string) (*models.ApplicationStats, error) {
-	var exists bool
-	checkQuery := `
-		SELECT EXISTS (
-			SELECT 1 FROM friends 
-			WHERE ((user_id = $1 AND friend_id = $2) OR (user_id = $2 AND friend_id = $1))
-			AND status = 'accepted'
-		)`
+	var isSharing bool
+	var isAccepted bool
 
-	err := database.DB.QueryRow(context.Background(), checkQuery, userID, friendID).Scan(&exists)
-	if err != nil || !exists {
+	query := `
+		SELECT 
+			u.share_stats,
+			EXISTS (
+				SELECT 1 FROM friends 
+				WHERE ((user_id = $1 AND friend_id = $2) OR (user_id = $2 AND friend_id = $1))
+				AND status = 'accepted'
+			) as is_accepted
+		FROM users u
+		WHERE u.id = $2`
+
+	err := database.DB.QueryRow(context.Background(), query, userID, friendID).Scan(&isSharing, &isAccepted)
+	if err != nil {
+		return nil, errors.New("user not found")
+	}
+
+	if !isAccepted {
 		return nil, errors.New("access denied: you must be accepted friends to view stats")
 	}
+
+	// Now it only blocks if a user explicitly went into settings and turned it OFF
+	if !isSharing {
+		return nil, errors.New("this user has chosen to keep their stats private")
+	}
+
 	return GetApplicationStats(friendID)
 }

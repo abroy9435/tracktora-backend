@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"context"
+	"tracktora-backend/internal/database"
 	"tracktora-backend/internal/models"
 	"tracktora-backend/internal/repository"
 
@@ -55,4 +57,24 @@ func UpdateProfile(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"message": "Profile updated successfully",
 	})
+}
+
+// UpdatePrivacySettings toggles the share_stats flag
+func UpdatePrivacySettings(c *fiber.Ctx) error {
+	userID := c.Locals("user_id").(string)
+
+	type Request struct {
+		ShareStats bool `json:"share_stats"`
+	}
+	req := new(Request)
+	if err := c.BodyParser(req); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "Invalid request"})
+	}
+
+	_, err := database.DB.Exec(context.Background(), "UPDATE users SET share_stats = $1 WHERE id = $2", req.ShareStats, userID)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "Failed to update settings"})
+	}
+
+	return c.Status(200).JSON(fiber.Map{"message": "Privacy settings updated!"})
 }
