@@ -34,6 +34,13 @@ func Setup(app *fiber.App) {
 	// User Profile Routes
 	protectedGroup.Get("/profile", handlers.GetProfile)
 	protectedGroup.Put("/profile/update", handlers.UpdateProfile)
+	// Explore Feed (Adzuna)
 	protectedGroup.Get("/explore", handlers.GetExplorePage)
 	protectedGroup.Post("/explore/save", handlers.SaveExternalJob)
+
+	// Connection / Friends System
+	protectedGroup.Post("/connect/invite", handlers.SendFriendRequest)       // User A invites User B
+	protectedGroup.Put("/connect/respond", handlers.RespondToFriendRequest)  // User B accepts/rejects
+	protectedGroup.Get("/connect/stats/:friend_id", handlers.GetFriendStats) // View mutual friend stats
+	protectedGroup.Get("/connect/requests", handlers.GetPendingRequests)
 }
