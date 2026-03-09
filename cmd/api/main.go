@@ -4,9 +4,11 @@ import (
 	"log"
 	"os"
 
+	"tracktora-backend/internal/database"
+	"tracktora-backend/internal/routes"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/joho/godotenv"
-	"github.com/yourusername/tracktora-backend/internal/database" // Update with your actual module path
 )
 
 func main() {
@@ -23,13 +25,8 @@ func main() {
 	// 3. Initialize Fiber app
 	app := fiber.New()
 
-	// 4. Simple Health Check Route
-	app.Get("/health", func(c *fiber.Ctx) error {
-		return c.JSON(fiber.Map{
-			"status":  "success",
-			"message": "TrackTora Backend is up and running! 🚀",
-		})
-	})
+	// 4. Setup all routes cleanly!
+	routes.Setup(app)
 
 	// 5. Start the server
 	port := os.Getenv("PORT")
