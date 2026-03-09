@@ -2,6 +2,7 @@ package routes
 
 import (
 	"tracktora-backend/internal/handlers"
+	"tracktora-backend/internal/middleware"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -22,8 +23,9 @@ func Setup(app *fiber.App) {
 	authGroup.Post("/login", handlers.Login)
 
 	// 3. Protected Routes (Requires JWT)
-	// Any route attached to this group will automatically run the bouncer first
-	//protectedGroup := app.Group("/api", middleware.RequireAuth)
+	protectedGroup := app.Group("/api", middleware.RequireAuth)
 
-	// We will add protectedGroup.Post("/applications", handlers.CreateApplication) here next!
+	// Explicit Application Routes
+	protectedGroup.Post("/applications/add", handlers.CreateApplication)
+	protectedGroup.Get("/applications/list", handlers.GetApplications)
 }
