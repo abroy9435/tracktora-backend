@@ -8,7 +8,7 @@ import (
 
 // Setup takes the Fiber app and registers all the endpoints
 func Setup(app *fiber.App) {
-	// 1. Simple Health Check Route
+	// 1. Public Routes
 	app.Get("/health", func(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{
 			"status":  "success",
@@ -16,8 +16,14 @@ func Setup(app *fiber.App) {
 		})
 	})
 
-	// Auth Routes
+	// 2. Auth Routes (Public)
 	authGroup := app.Group("/api/auth")
 	authGroup.Post("/register", handlers.Register)
-	authGroup.Post("/login", handlers.Login) // <-- Add this line!
+	authGroup.Post("/login", handlers.Login)
+
+	// 3. Protected Routes (Requires JWT)
+	// Any route attached to this group will automatically run the bouncer first
+	//protectedGroup := app.Group("/api", middleware.RequireAuth)
+
+	// We will add protectedGroup.Post("/applications", handlers.CreateApplication) here next!
 }
