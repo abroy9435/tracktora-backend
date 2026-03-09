@@ -54,3 +54,17 @@ func GetFriendStats(c *fiber.Ctx) error {
 	}
 	return c.Status(200).JSON(stats)
 }
+
+// GetFriendList handles GET /api/connect/list
+func GetFriendList(c *fiber.Ctx) error {
+	userID := c.Locals("user_id").(string)
+
+	friends, err := repository.GetAcceptedFriends(userID)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "Failed to fetch friend list"})
+	}
+
+	return c.Status(200).JSON(fiber.Map{
+		"friends": friends,
+	})
+}

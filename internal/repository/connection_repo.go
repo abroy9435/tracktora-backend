@@ -100,3 +100,37 @@ func GetFriendStats(userID, friendID string) (*models.ApplicationStats, error) {
 
 	return GetApplicationStats(friendID)
 }
+
+// GetAcceptedFriends returns a list of all users you are officially connected with
+func GetAcceptedFriends(userID string) ([]map[string]interface{}, error) {
+	query := `
+		SELECT 
+			u.id, u.username, u.email, u.share_stats
+		FROM users u
+		JOIN friends f ON (f.user_id = u.id OR f.friend_id = u.id)
+		WHERE (f.user_id = $1 OR f.friend_id = $1) 
+		  AND f.status = 'accepted'
+		  AND u.id != $1` // Don't include yourself in the list
+
+	rows, err := database.DB.Query(context.Background(), query, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var friends []map[string]interface{}
+	for rows.Next() {
+		var id, name, email string
+		var sharing bool
+		if err := rows.Scan(&id, &name, &email, &sharing); err != nil {
+			return nil, err
+		}
+		friends = append(friends, map[string]interface{}{
+			"friend_id":   id,
+			"username":    name,
+			"email":       email,
+			"share_stats": sharing,
+		})
+	}
+	return friends, nil
+}
