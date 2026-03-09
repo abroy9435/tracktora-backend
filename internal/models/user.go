@@ -22,3 +22,8 @@ type User struct {
 	Email     string    `json:"email"`
 	CreatedAt time.Time `json:"created_at"`
 }
+
+// UpdateProfileRequest defines the payload for updating user details
+type UpdateProfileRequest struct {
+	Username string `json:"username"`
+}

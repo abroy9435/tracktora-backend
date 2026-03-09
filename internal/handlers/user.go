@@ -1,0 +1,58 @@
+package handlers
+
+import (
+	"tracktora-backend/internal/models"
+	"tracktora-backend/internal/repository"
+
+	"github.com/gofiber/fiber/v2"
+)
+
+// GetProfile returns the logged-in user's details
+func GetProfile(c *fiber.Ctx) error {
+	// 1. Grab the secure user_id from the JWT bouncer
+	userID := c.Locals("user_id").(string)
+
+	// 2. Fetch the user from the database
+	user, err := repository.GetUserByID(userID)
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	// 3. Return the user object
+	return c.Status(fiber.StatusOK).JSON(user)
+}
+
+// UpdateProfile handles changing user details
+func UpdateProfile(c *fiber.Ctx) error {
+	// 1. Grab the secure user_id
+	userID := c.Locals("user_id").(string)
+
+	// 2. Parse the JSON body
+	req := new(models.UpdateProfileRequest)
+	if err := c.BodyParser(req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid request payload",
+		})
+	}
+
+	// 3. Quick validation
+	if req.Username == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Username cannot be empty",
+		})
+	}
+
+	// 4. Send to the repository to update PostgreSQL
+	if err := repository.UpdateUser(userID, req); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	// 5. Return success!
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"message": "Profile updated successfully",
+	})
+}

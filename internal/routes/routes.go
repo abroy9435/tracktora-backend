@@ -29,6 +29,9 @@ func Setup(app *fiber.App) {
 	protectedGroup.Post("/applications/add", handlers.CreateApplication)
 	protectedGroup.Get("/applications/list", handlers.GetApplications)
 	protectedGroup.Get("/applications/stats", handlers.GetApplicationStats)
-	protectedGroup.Put("/applications/update", handlers.UpdateApplication) // <-- Add this!
+	protectedGroup.Put("/applications/update", handlers.UpdateApplication)
 	protectedGroup.Delete("/applications/delete", handlers.DeleteApplication)
+	// User Profile Routes
+	protectedGroup.Get("/profile", handlers.GetProfile)
+	protectedGroup.Put("/profile/update", handlers.UpdateProfile)
 }

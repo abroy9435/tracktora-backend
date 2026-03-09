@@ -47,3 +47,39 @@ func GetUserByEmail(email string) (*models.User, string, error) {
 
 	return &user, passwordHash, nil
 }
+
+// GetUserByID fetches a user's profile details without exposing the password hash
+func GetUserByID(userID string) (*models.User, error) {
+	var user models.User
+
+	// We specifically DO NOT select the password_hash here for security!
+	query := `SELECT id, username, email, created_at FROM users WHERE id = $1`
+
+	err := database.DB.QueryRow(context.Background(), query, userID).Scan(
+		&user.ID,
+		&user.Username,
+		&user.Email,
+		&user.CreatedAt,
+	)
+	if err != nil {
+		return nil, errors.New("user not found")
+	}
+
+	return &user, nil
+}
+
+// UpdateUser modifies the user's profile information
+func UpdateUser(userID string, req *models.UpdateProfileRequest) error {
+	query := `UPDATE users SET username = $1 WHERE id = $2`
+
+	result, err := database.DB.Exec(context.Background(), query, req.Username, userID)
+	if err != nil {
+		return errors.New("failed to update profile")
+	}
+
+	if result.RowsAffected() == 0 {
+		return errors.New("user not found")
+	}
+
+	return nil
+}
