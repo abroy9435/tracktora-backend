@@ -30,6 +30,7 @@ func Setup(app *fiber.App) {
 	protectedGroup := app.Group("/api", middleware.RequireAuth)
 
 	// Explicit Application Routes
+	protectedGroup.Put("/auth/update-password", handlers.UpdatePassword)
 	protectedGroup.Post("/applications/add", handlers.CreateApplication)
 	protectedGroup.Get("/applications/list", handlers.GetApplications)
 	protectedGroup.Get("/applications/stats", handlers.GetApplicationStats)

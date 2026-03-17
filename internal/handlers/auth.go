@@ -200,3 +200,39 @@ func ResendVerification(c *fiber.Ctx) error {
 
 	return c.Status(200).JSON(fiber.Map{"message": "New verification code sent!"})
 }
+
+func UpdatePassword(c *fiber.Ctx) error {
+	// 1. Get user_id from JWT locals (Ensure your middleware sets this)
+	userID, ok := c.Locals("user_id").(string)
+	if !ok {
+		return c.Status(401).JSON(fiber.Map{"error": "Unauthorized: Missing user identity"})
+	}
+
+	type Request struct {
+		CurrentPassword string `json:"current_password"`
+		NewPassword     string `json:"new_password"`
+	}
+	req := new(Request)
+	if err := c.BodyParser(req); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "Invalid payload"})
+	}
+
+	// 2. Fetch current hash from repository
+	currentHash, err := repository.GetUserHashByID(userID)
+	if err != nil {
+		return c.Status(404).JSON(fiber.Map{"error": "User record not found"})
+	}
+
+	// 3. Compare current password
+	if err := bcrypt.CompareHashAndPassword([]byte(currentHash), []byte(req.CurrentPassword)); err != nil {
+		return c.Status(401).JSON(fiber.Map{"error": "Current password is incorrect"})
+	}
+
+	// 4. Hash new password and save
+	newHash, _ := bcrypt.GenerateFromPassword([]byte(req.NewPassword), 10)
+	if err := repository.UpdateUserPassword(userID, string(newHash)); err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "Failed to update password in database"})
+	}
+
+	return c.Status(200).JSON(fiber.Map{"message": "Password updated successfully!"})
+}

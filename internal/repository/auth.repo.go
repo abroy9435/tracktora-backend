@@ -76,3 +76,21 @@ func VerifyAndActivateUser(email, code string) error {
 	_, _ = database.DB.Exec(context.Background(), "DELETE FROM verification_tokens WHERE email = $1", email)
 	return nil
 }
+
+// GetUserHashByID retrieves the current password hash for a specific user ID
+func GetUserHashByID(userID string) (string, error) {
+	var hash string
+	query := `SELECT password_hash FROM users WHERE id = $1`
+	err := database.DB.QueryRow(context.Background(), query, userID).Scan(&hash)
+	if err != nil {
+		return "", errors.New("user not found")
+	}
+	return hash, nil
+}
+
+// UpdateUserPassword updates the password_hash for a specific user ID
+func UpdateUserPassword(userID string, newHashedPassword string) error {
+	query := `UPDATE users SET password_hash = $1 WHERE id = $2`
+	_, err := database.DB.Exec(context.Background(), query, newHashedPassword, userID)
+	return err
+}
