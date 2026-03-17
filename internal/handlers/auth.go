@@ -2,7 +2,9 @@ package handlers
 
 import (
 	"fmt"
+	"log"
 	"math/rand"
+	"net/smtp"
 	"os"
 	"time"
 
@@ -14,144 +16,163 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-// Register handles user sign-up
-func Register(c *fiber.Ctx) error {
-	req := new(models.RegisterRequest)
+// --- UTILS ---
 
-	// 1. Parse the incoming JSON body
-	if err := c.BodyParser(req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid request payload",
-		})
-	}
-
-	// 2. Validate basic input
-	if req.Username == "" || req.Email == "" || req.Password == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Username, email, and password are required",
-		})
-	}
-
-	// 3. Hash the password
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), 10)
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to process password",
-		})
-	}
-
-	// 4. Save to the database
-	userID, err := repository.CreateUser(req.Username, req.Email, string(hashedPassword))
-	if err != nil {
-		return c.Status(fiber.StatusConflict).JSON(fiber.Map{
-			"error": err.Error(),
-		})
-	}
-
-	// 5. Return success response
-	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
-		"message": "User registered successfully",
-		"user_id": userID,
-	})
-}
-
-// Login handles user authentication and returns a JWT
-func Login(c *fiber.Ctx) error {
-	req := new(models.LoginRequest)
-
-	// 1. Parse the incoming JSON body
-	if err := c.BodyParser(req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request payload"})
-	}
-
-	// 2. Find the user by email
-	user, hashedPassword, err := repository.GetUserByEmail(req.Email)
-	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid credentials"})
-	}
-
-	// 3. Compare the provided password with the stored hash
-	err = bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(req.Password))
-	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid credentials"})
-	}
-
-	// 4. Generate the JWT Token
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"user_id": user.ID,
-		"exp":     time.Now().Add(time.Hour * 72).Unix(), // Token expires in 72 hours
-	})
-
-	// 5. Sign the token with our secret key
-	secret := os.Getenv("JWT_SECRET")
-	tokenString, err := token.SignedString([]byte(secret))
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Could not login"})
-	}
-
-	// 6. Return the user info and the token!
-	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"message": "Login successful",
-		"token":   tokenString,
-		"user":    user,
-	})
-}
-
-// Helper to generate a 6-digit random code
 func generateRandomCode() string {
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	return fmt.Sprintf("%06d", r.Intn(1000000))
 }
 
-// ForgotPassword generates a dynamic random code
+func sendEmail(to, subject, htmlBody string) {
+	from := os.Getenv("SMTP_EMAIL")
+	password := os.Getenv("SMTP_PASSWORD")
+	smtpHost := "smtp.gmail.com"
+	smtpPort := "587"
+
+	// RFC 822 format for Gmail SMTP
+	message := []byte("Subject: " + subject + "\r\n" +
+		"MIME-version: 1.0;\nContent-Type: text/html; charset=\"UTF-8\";\n\n" +
+		htmlBody + "\r\n")
+
+	auth := smtp.PlainAuth("", from, password, smtpHost)
+
+	// Background execution
+	go func() {
+		err := smtp.SendMail(smtpHost+":"+smtpPort, auth, from, []string{to}, message)
+		if err != nil {
+			log.Printf("!!! SMTP ERROR to %s: %v", to, err)
+			return
+		}
+		log.Printf("Email successfully sent to %s via Gmail SMTP", to)
+	}()
+}
+
+// --- HANDLERS ---
+
+func Register(c *fiber.Ctx) error {
+	req := new(models.RegisterRequest)
+	if err := c.BodyParser(req); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "Invalid payload"})
+	}
+
+	hash, _ := bcrypt.GenerateFromPassword([]byte(req.Password), 10)
+	userID, err := repository.CreateUser(req.Username, req.Email, string(hash))
+	if err != nil {
+		return c.Status(409).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	code := generateRandomCode()
+	repository.StoreVerificationToken(req.Email, code)
+
+	sendEmail(req.Email, "Verify Your TrackTora Account",
+		fmt.Sprintf("<h1>Welcome!</h1><p>Your verification code is: <strong>%s</strong></p>", code))
+
+	return c.Status(201).JSON(fiber.Map{"message": "Verification code sent!", "user_id": userID})
+}
+
+func VerifyEmail(c *fiber.Ctx) error {
+	type Request struct {
+		Email string `json:"email"`
+		Code  string `json:"code"`
+	}
+	req := new(Request)
+	c.BodyParser(req)
+
+	if err := repository.VerifyAndActivateUser(req.Email, req.Code); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": err.Error()})
+	}
+	return c.Status(200).JSON(fiber.Map{"message": "Email verified successfully!"})
+}
+
+func Login(c *fiber.Ctx) error {
+	req := new(models.LoginRequest)
+	c.BodyParser(req)
+
+	user, hash, isVerified, err := repository.GetUserByEmailWithVerification(req.Email)
+	if err != nil {
+		return c.Status(401).JSON(fiber.Map{"error": "Invalid credentials"})
+	}
+
+	if !isVerified {
+		return c.Status(403).JSON(fiber.Map{"error": "Please verify your email address before logging in."})
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(req.Password)); err != nil {
+		return c.Status(401).JSON(fiber.Map{"error": "Invalid credentials"})
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"user_id": user.ID,
+		"exp":     time.Now().Add(time.Hour * 72).Unix(),
+	})
+	secret := os.Getenv("JWT_SECRET")
+	tokenString, _ := token.SignedString([]byte(secret))
+
+	return c.Status(200).JSON(fiber.Map{"token": tokenString, "user": user})
+}
+
 func ForgotPassword(c *fiber.Ctx) error {
 	type Request struct {
 		Email string `json:"email"`
 	}
 	req := new(Request)
-	if err := c.BodyParser(req); err != nil {
-		return c.Status(400).JSON(fiber.Map{"error": "Invalid email format"})
-	}
+	c.BodyParser(req)
 
-	// Generate the random 6-digit code
-	resetCode := generateRandomCode()
-
-	if err := repository.StoreResetToken(req.Email, resetCode); err != nil {
+	token := generateRandomCode()
+	if err := repository.StoreResetToken(req.Email, token); err != nil {
 		return c.Status(400).JSON(fiber.Map{"error": err.Error()})
 	}
 
-	// Returning the dynamic code in the response for testing
-	return c.Status(200).JSON(fiber.Map{
-		"message": "Reset code generated. Check your email (simulated).",
-		"code":    resetCode,
-	})
+	sendEmail(req.Email, "Password Reset Code",
+		fmt.Sprintf("<h1>Reset Code: %s</h1>", token))
+
+	return c.Status(200).JSON(fiber.Map{"message": "If account exists, code has been sent."})
 }
 
-// internal/handlers/auth.go
-
-// ResetPassword handles the final password change using the token
 func ResetPassword(c *fiber.Ctx) error {
 	type Request struct {
 		Token       string `json:"token"`
 		NewPassword string `json:"new_password"`
 	}
 	req := new(Request)
-	if err := c.BodyParser(req); err != nil {
-		return c.Status(400).JSON(fiber.Map{"error": "Invalid request body"})
-	}
+	c.BodyParser(req)
 
-	// Hash the new password
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
-	if err != nil {
-		return c.Status(500).JSON(fiber.Map{"error": "Failed to secure new password"})
-	}
-
-	// Call repository to verify token and update DB
-	if err := repository.ResetPassword(req.Token, string(hashedPassword)); err != nil {
+	hashed, _ := bcrypt.GenerateFromPassword([]byte(req.NewPassword), 10)
+	if err := repository.ResetPassword(req.Token, string(hashed)); err != nil {
 		return c.Status(400).JSON(fiber.Map{"error": err.Error()})
 	}
+	return c.Status(200).JSON(fiber.Map{"message": "Password updated successfully"})
+}
 
-	return c.Status(200).JSON(fiber.Map{
-		"message": "Password updated successfully. You can now login.",
-	})
+func ResendVerification(c *fiber.Ctx) error {
+	type Request struct {
+		Email string `json:"email"`
+	}
+	req := new(Request)
+	if err := c.BodyParser(req); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "Invalid payload"})
+	}
+
+	// 1. Check if user exists and their current status
+	_, _, isVerified, err := repository.GetUserByEmailWithVerification(req.Email)
+	if err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "User not found"})
+	}
+
+	if isVerified {
+		return c.Status(400).JSON(fiber.Map{"error": "Account is already verified"})
+	}
+
+	// 2. Generate and store new code (this overrides the old expired one)
+	code := generateRandomCode()
+	err = repository.StoreVerificationToken(req.Email, code)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "Failed to generate new code"})
+	}
+
+	// 3. Send the email
+	sendEmail(req.Email, "New Verification Code",
+		fmt.Sprintf("<h1>TrackTora</h1><p>Your new verification code is: <strong>%s</strong></p>", code))
+
+	return c.Status(200).JSON(fiber.Map{"message": "New verification code sent!"})
 }

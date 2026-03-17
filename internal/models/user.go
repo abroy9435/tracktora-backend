@@ -17,10 +17,12 @@ type LoginRequest struct {
 
 // User represents the database user
 type User struct {
-	ID        string    `json:"id"`
-	Username  string    `json:"username"`
-	Email     string    `json:"email"`
-	CreatedAt time.Time `json:"created_at"`
+	ID         string    `json:"id"`
+	Username   string    `json:"username"`
+	Email      string    `json:"email"`
+	IsVerified bool      `json:"is_verified"`
+	ShareStats bool      `json:"share_stats"`
+	CreatedAt  time.Time `json:"created_at"`
 }
 
 // UpdateProfileRequest defines the payload for updating user details
