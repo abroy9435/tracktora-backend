@@ -68,3 +68,17 @@ func GetFriendList(c *fiber.Ctx) error {
 		"friends": friends,
 	})
 }
+
+func SearchUsers(c *fiber.Ctx) error {
+	userID := c.Locals("user_id").(string)
+	query := c.Query("q")
+	if len(query) < 3 {
+		return c.Status(400).JSON(fiber.Map{"error": "Search query too short"})
+	}
+
+	results, err := repository.SearchUsers(userID, query)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "Search failed"})
+	}
+	return c.Status(200).JSON(fiber.Map{"results": results})
+}

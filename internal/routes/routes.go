@@ -52,4 +52,5 @@ func Setup(app *fiber.App) {
 	protectedGroup.Get("/connect/stats/:friend_id", handlers.GetFriendStats) // View mutual friend stats
 	protectedGroup.Get("/connect/requests", handlers.GetPendingRequests)
 	protectedGroup.Get("/connect/list", handlers.GetFriendList)
+	protectedGroup.Get("/connect/search", handlers.SearchUsers)
 }

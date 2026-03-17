@@ -134,3 +134,32 @@ func GetAcceptedFriends(userID string) ([]map[string]interface{}, error) {
 	}
 	return friends, nil
 }
+
+func SearchUsers(currentUserID, query string) ([]map[string]interface{}, error) {
+	sqlQuery := `
+		SELECT id, username, email 
+		FROM users 
+		WHERE (username ILIKE $2 OR email ILIKE $2) 
+		AND id != $1 
+		LIMIT 10`
+
+	rows, err := database.DB.Query(context.Background(), sqlQuery, currentUserID, "%"+query+"%")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var results []map[string]interface{}
+	for rows.Next() {
+		var id, name, email string
+		if err := rows.Scan(&id, &name, &email); err != nil {
+			return nil, err
+		}
+		results = append(results, map[string]interface{}{
+			"id":       id,
+			"username": name,
+			"email":    email,
+		})
+	}
+	return results, nil
+}
