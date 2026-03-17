@@ -82,3 +82,15 @@ func SearchUsers(c *fiber.Ctx) error {
 	}
 	return c.Status(200).JSON(fiber.Map{"results": results})
 }
+
+func CancelFriendRequest(c *fiber.Ctx) error {
+	userID := c.Locals("user_id").(string)
+	req := new(models.ConnectionRequest)
+	if err := c.BodyParser(req); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "Invalid request"})
+	}
+	if err := repository.CancelInvite(userID, req.FriendID); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": err.Error()})
+	}
+	return c.Status(200).JSON(fiber.Map{"message": "Request cancelled"})
+}

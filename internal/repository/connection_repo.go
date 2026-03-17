@@ -163,3 +163,9 @@ func SearchUsers(currentUserID, query string) ([]map[string]interface{}, error) 
 	}
 	return results, nil
 }
+
+func CancelInvite(requesterID, receiverID string) error {
+	query := `DELETE FROM friends WHERE user_id = $1 AND friend_id = $2 AND status = 'pending'`
+	_, err := database.DB.Exec(context.Background(), query, requesterID, receiverID)
+	return err
+}
