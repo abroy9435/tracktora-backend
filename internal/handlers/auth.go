@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"crypto/tls"
 	"fmt"
 	"log"
 	"math/rand"
@@ -23,28 +24,80 @@ func generateRandomCode() string {
 	return fmt.Sprintf("%06d", r.Intn(1000000))
 }
 
-func sendEmail(to, subject, htmlBody string) {
+func sendEmail(to string, subject string, body string) error {
 	from := os.Getenv("SMTP_EMAIL")
 	password := os.Getenv("SMTP_PASSWORD")
-	smtpHost := "smtp.gmail.com"
-	smtpPort := "587"
 
-	// RFC 822 format for Gmail SMTP
-	message := []byte("Subject: " + subject + "\r\n" +
-		"MIME-version: 1.0;\nContent-Type: text/html; charset=\"UTF-8\";\n\n" +
-		htmlBody + "\r\n")
+	if from == "" || password == "" {
+		log.Println("WARNING: SMTP_EMAIL or SMTP_PASSWORD is not set.")
+		return fmt.Errorf("SMTP credentials missing")
+	}
+
+	// Hugging Face workaround: Use port 465 and explicit TLS
+	smtpHost := "smtp.gmail.com"
+	smtpPort := "465"
+
+	msg := "From: TrackTora <" + from + ">\r\n" +
+		"To: " + to + "\r\n" +
+		"Subject: " + subject + "\r\n\r\n" +
+		body
 
 	auth := smtp.PlainAuth("", from, password, smtpHost)
 
-	// Background execution
-	go func() {
-		err := smtp.SendMail(smtpHost+":"+smtpPort, auth, from, []string{to}, message)
-		if err != nil {
-			log.Printf("!!! SMTP ERROR to %s: %v", to, err)
-			return
-		}
-		log.Printf("Email successfully sent to %s via Gmail SMTP", to)
-	}()
+	// Build the TLS configuration
+	tlsconfig := &tls.Config{
+		InsecureSkipVerify: false,
+		ServerName:         smtpHost,
+	}
+
+	// Connect directly over TLS
+	conn, err := tls.Dial("tcp", smtpHost+":"+smtpPort, tlsconfig)
+	if err != nil {
+		log.Printf("!!! TLS Connection Error: %v\n", err)
+		return err
+	}
+	defer conn.Close()
+
+	// Create the SMTP client
+	c, err := smtp.NewClient(conn, smtpHost)
+	if err != nil {
+		log.Printf("!!! SMTP Client Error: %v\n", err)
+		return err
+	}
+
+	// Authenticate
+	if err = c.Auth(auth); err != nil {
+		log.Printf("!!! SMTP Auth Error: %v\n", err)
+		return err
+	}
+
+	// Set sender and recipient
+	if err = c.Mail(from); err != nil {
+		return err
+	}
+	if err = c.Rcpt(to); err != nil {
+		return err
+	}
+
+	// Send the email body
+	w, err := c.Data()
+	if err != nil {
+		return err
+	}
+
+	_, err = w.Write([]byte(msg))
+	if err != nil {
+		return err
+	}
+
+	err = w.Close()
+	if err != nil {
+		return err
+	}
+
+	c.Quit()
+	log.Printf("SUCCESS: Email sent to %s via port 465\n", to)
+	return nil
 }
 
 // --- HANDLERS ---
