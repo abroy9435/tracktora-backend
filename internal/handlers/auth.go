@@ -1,11 +1,13 @@
 package handlers
 
 import (
-	"crypto/tls"
+	"bytes"
+	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"math/rand"
-	"net/smtp"
+	"net/http"
 	"os"
 	"time"
 
@@ -24,80 +26,51 @@ func generateRandomCode() string {
 	return fmt.Sprintf("%06d", r.Intn(1000000))
 }
 
+// sendEmail now bypasses the Hugging Face firewall by using a Google Webhook (Port 443)
 func sendEmail(to string, subject string, body string) error {
-	from := os.Getenv("SMTP_EMAIL")
-	password := os.Getenv("SMTP_PASSWORD")
+	webhookURL := os.Getenv("GOOGLE_SCRIPT_URL")
 
-	if from == "" || password == "" {
-		log.Println("WARNING: SMTP_EMAIL or SMTP_PASSWORD is not set.")
-		return fmt.Errorf("SMTP credentials missing")
+	if webhookURL == "" {
+		log.Println("WARNING: GOOGLE_SCRIPT_URL is not set in environment variables.")
+		return fmt.Errorf("email webhook configuration missing")
 	}
 
-	// Hugging Face workaround: Use port 465 and explicit TLS
-	smtpHost := "smtp.gmail.com"
-	smtpPort := "465"
-
-	msg := "From: TrackTora <" + from + ">\r\n" +
-		"To: " + to + "\r\n" +
-		"Subject: " + subject + "\r\n\r\n" +
-		body
-
-	auth := smtp.PlainAuth("", from, password, smtpHost)
-
-	// Build the TLS configuration
-	tlsconfig := &tls.Config{
-		InsecureSkipVerify: false,
-		ServerName:         smtpHost,
+	// Prepare the JSON payload for the Google Script
+	payload := map[string]string{
+		"to":      to,
+		"subject": subject,
+		"body":    body,
 	}
 
-	// Connect directly over TLS
-	conn, err := tls.Dial("tcp", smtpHost+":"+smtpPort, tlsconfig)
-	if err != nil {
-		log.Printf("!!! TLS Connection Error: %v\n", err)
-		return err
-	}
-	defer conn.Close()
-
-	// Create the SMTP client
-	c, err := smtp.NewClient(conn, smtpHost)
-	if err != nil {
-		log.Printf("!!! SMTP Client Error: %v\n", err)
-		return err
-	}
-
-	// Authenticate
-	if err = c.Auth(auth); err != nil {
-		log.Printf("!!! SMTP Auth Error: %v\n", err)
-		return err
-	}
-
-	// Set sender and recipient
-	if err = c.Mail(from); err != nil {
-		return err
-	}
-	if err = c.Rcpt(to); err != nil {
-		return err
-	}
-
-	// Send the email body
-	w, err := c.Data()
+	jsonPayload, err := json.Marshal(payload)
 	if err != nil {
 		return err
 	}
 
-	_, err = w.Write([]byte(msg))
+	// Make the HTTP request to Google (Standard Web Traffic - Never Blocked)
+	req, err := http.NewRequest("POST", webhookURL, bytes.NewBuffer(jsonPayload))
 	if err != nil {
 		return err
 	}
+	req.Header.Set("Content-Type", "application/json")
 
-	err = w.Close()
+	client := &http.Client{Timeout: 15 * time.Second}
+	resp, err := client.Do(req)
 	if err != nil {
+		log.Printf("!!! Webhook Request Failed: %v\n", err)
 		return err
 	}
+	defer resp.Body.Close()
 
-	c.Quit()
-	log.Printf("SUCCESS: Email sent to %s via port 465\n", to)
-	return nil
+	// Handle the response from your Google Script
+	if resp.StatusCode == 200 {
+		log.Printf("SUCCESS: Verification email triggered for %s via Google Apps Script\n", to)
+		return nil
+	}
+
+	respBody, _ := io.ReadAll(resp.Body)
+	log.Printf("!!! Webhook Error (Status %d): %s\n", resp.StatusCode, string(respBody))
+	return fmt.Errorf("failed to send email through webhook")
 }
 
 // --- HANDLERS ---
@@ -117,8 +90,9 @@ func Register(c *fiber.Ctx) error {
 	code := generateRandomCode()
 	repository.StoreVerificationToken(req.Email, code)
 
-	sendEmail(req.Email, "Verify Your TrackTora Account",
-		fmt.Sprintf("<h1>Welcome!</h1><p>Your verification code is: <strong>%s</strong></p>", code))
+	// Send the email using our new webhook
+	go sendEmail(req.Email, "Verify Your TrackTora Account",
+		fmt.Sprintf("<h1>Welcome to TrackTora!</h1><p>Your verification code is: <strong>%s</strong></p>", code))
 
 	return c.Status(201).JSON(fiber.Map{"message": "Verification code sent!", "user_id": userID})
 }
@@ -176,8 +150,8 @@ func ForgotPassword(c *fiber.Ctx) error {
 		return c.Status(400).JSON(fiber.Map{"error": err.Error()})
 	}
 
-	sendEmail(req.Email, "Password Reset Code",
-		fmt.Sprintf("<h1>Reset Code: %s</h1>", token))
+	go sendEmail(req.Email, "TrackTora Password Reset",
+		fmt.Sprintf("<h1>Reset Code: %s</h1><p>Enter this code in the app to set a new password.</p>", token))
 
 	return c.Status(200).JSON(fiber.Map{"message": "If account exists, code has been sent."})
 }
@@ -206,7 +180,6 @@ func ResendVerification(c *fiber.Ctx) error {
 		return c.Status(400).JSON(fiber.Map{"error": "Invalid payload"})
 	}
 
-	// 1. Check if user exists and their current status
 	_, _, isVerified, err := repository.GetUserByEmailWithVerification(req.Email)
 	if err != nil {
 		return c.Status(400).JSON(fiber.Map{"error": "User not found"})
@@ -216,15 +189,13 @@ func ResendVerification(c *fiber.Ctx) error {
 		return c.Status(400).JSON(fiber.Map{"error": "Account is already verified"})
 	}
 
-	// 2. Generate and store new code (this overrides the old expired one)
 	code := generateRandomCode()
 	err = repository.StoreVerificationToken(req.Email, code)
 	if err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "Failed to generate new code"})
 	}
 
-	// 3. Send the email
-	sendEmail(req.Email, "New Verification Code",
+	go sendEmail(req.Email, "New Verification Code",
 		fmt.Sprintf("<h1>TrackTora</h1><p>Your new verification code is: <strong>%s</strong></p>", code))
 
 	return c.Status(200).JSON(fiber.Map{"message": "New verification code sent!"})
