@@ -118,6 +118,68 @@ func (r *ResumeRepository) GetCertificationsByUser(userID string) ([]models.Cert
 	return res, nil
 }
 
+// --- VAULT UPDATES & DELETES ---
+
+func (r *ResumeRepository) UpdateProject(p models.Project) error {
+	query := `UPDATE projects SET project_name=$1, description=$2, tech_stack=$3, project_url=$4 WHERE id=$5 AND user_id=$6`
+	_, err := r.DB.Exec(context.Background(), query, p.ProjectName, p.Description, p.TechStack, p.ProjectURL, p.ID, p.UserID)
+	return err
+}
+
+func (r *ResumeRepository) DeleteProject(id, userID string) error {
+	_, err := r.DB.Exec(context.Background(), "DELETE FROM projects WHERE id=$1 AND user_id=$2", id, userID)
+	return err
+}
+
+func (r *ResumeRepository) UpdateExperience(e models.Experience) error {
+	query := `UPDATE experiences SET company_name=$1, role_title=$2, start_date=$3, end_date=$4, is_current=$5, bullet_points=$6 WHERE id=$7 AND user_id=$8`
+	_, err := r.DB.Exec(context.Background(), query, e.CompanyName, e.RoleTitle, e.StartDate, e.EndDate, e.IsCurrent, e.BulletPoints, e.ID, e.UserID)
+	return err
+}
+
+func (r *ResumeRepository) DeleteExperience(id, userID string) error {
+	_, err := r.DB.Exec(context.Background(), "DELETE FROM experiences WHERE id=$1 AND user_id=$2", id, userID)
+	return err
+}
+
+func (r *ResumeRepository) UpdateEducation(e models.Education) error {
+	query := `UPDATE educations SET institution=$1, degree=$2, field_of_study=$3, start_year=$4, end_year=$5 WHERE id=$6 AND user_id=$7`
+	_, err := r.DB.Exec(context.Background(), query, e.Institution, e.Degree, e.FieldOfStudy, e.StartYear, e.EndYear, e.ID, e.UserID)
+	return err
+}
+
+func (r *ResumeRepository) DeleteEducation(id, userID string) error {
+	_, err := r.DB.Exec(context.Background(), "DELETE FROM educations WHERE id=$1 AND user_id=$2", id, userID)
+	return err
+}
+
+func (r *ResumeRepository) UpdateSkill(s models.Skill) error {
+	query := `UPDATE skills SET skill_name=$1, category=$2 WHERE id=$3 AND user_id=$4`
+	_, err := r.DB.Exec(context.Background(), query, s.SkillName, s.Category, s.ID, s.UserID)
+	return err
+}
+
+func (r *ResumeRepository) DeleteSkill(id, userID string) error {
+	_, err := r.DB.Exec(context.Background(), "DELETE FROM skills WHERE id=$1 AND user_id=$2", id, userID)
+	return err
+}
+
+func (r *ResumeRepository) UpdateCertification(c models.Certification) error {
+	query := `UPDATE certifications SET name=$1, issuing_organization=$2, issue_date=$3, credential_url=$4 WHERE id=$5 AND user_id=$6`
+	_, err := r.DB.Exec(context.Background(), query, c.Name, c.IssuingOrganization, c.IssueDate, c.CredentialURL, c.ID, c.UserID)
+	return err
+}
+
+func (r *ResumeRepository) DeleteCertification(id, userID string) error {
+	_, err := r.DB.Exec(context.Background(), "DELETE FROM certifications WHERE id=$1 AND user_id=$2", id, userID)
+	return err
+}
+
+func (r *ResumeRepository) DeleteResume(id, userID string) error {
+	_, err := r.DB.Exec(context.Background(), "DELETE FROM resumes WHERE id=$1 AND user_id=$2", id, userID)
+	return err
+}
+
 // --- RESUME COMPILATION ---
 
 func (r *ResumeRepository) SaveResume(res models.Resume) error {
