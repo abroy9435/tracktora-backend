@@ -53,4 +53,43 @@ func Setup(app *fiber.App) {
 	protectedGroup.Get("/connect/requests", handlers.GetPendingRequests)
 	protectedGroup.Get("/connect/list", handlers.GetFriendList)
 	protectedGroup.Get("/connect/search", handlers.SearchUsers)
+
+	// --- NEW: RESUME BUILDER & MASTER VAULT ---
+	resumeGroup := protectedGroup.Group("/resume")
+
+	// Vault: Projects
+	resumeGroup.Post("/vault/project", handlers.AddProject)
+	resumeGroup.Get("/vault/project", handlers.GetProjects)
+	resumeGroup.Put("/vault/project", handlers.UpdateProject)
+	resumeGroup.Delete("/vault/project", handlers.DeleteProject)
+
+	// Vault: Experiences
+	resumeGroup.Post("/vault/experience", handlers.AddExperience)
+	resumeGroup.Get("/vault/experience", handlers.GetExperiences)
+	resumeGroup.Put("/vault/experience", handlers.UpdateExperience)
+	resumeGroup.Delete("/vault/experience", handlers.DeleteExperience)
+
+	// Vault: Education
+	resumeGroup.Post("/vault/education", handlers.AddEducation)
+	resumeGroup.Get("/vault/education", handlers.GetEducations)
+	resumeGroup.Put("/vault/education", handlers.UpdateEducation)
+	resumeGroup.Delete("/vault/education", handlers.DeleteEducation)
+
+	// Vault: Skills
+	resumeGroup.Post("/vault/skill", handlers.AddSkill)
+	resumeGroup.Get("/vault/skill", handlers.GetSkills)
+	resumeGroup.Put("/vault/skill", handlers.UpdateSkill)
+	resumeGroup.Delete("/vault/skill", handlers.DeleteSkill)
+
+	// Vault: Certifications (NEW TWEAK)
+	resumeGroup.Post("/vault/certification", handlers.AddCertification)
+	resumeGroup.Get("/vault/certification", handlers.GetCertifications)
+	resumeGroup.Put("/vault/certification", handlers.UpdateCertification)
+	resumeGroup.Delete("/vault/certification", handlers.DeleteCertification)
+
+	// Resume Compilation & Management
+	resumeGroup.Post("/build", handlers.SaveResumeBlueprint)    // Saves the selected array of IDs + Summary
+	resumeGroup.Get("/list", handlers.GetSavedResumes)          // Lists all generated resumes
+	resumeGroup.Get("/compile/:id", handlers.GetCompiledResume) // The Magic Endpoint: Fetches fully assembled JSON
+	resumeGroup.Delete("/delete/:id", handlers.DeleteResume)
 }
