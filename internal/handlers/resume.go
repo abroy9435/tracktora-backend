@@ -172,7 +172,7 @@ func DeleteResume(c *fiber.Ctx) error {
 func AddExperience(c *fiber.Ctx) error {
 	var e models.Experience
 	if err := c.BodyParser(&e); err != nil {
-		return c.Status(400).JSON(fiber.Map{"error": "Invalid input"})
+		return c.Status(400).JSON(fiber.Map{"error": err.Error()})
 	}
 	e.UserID = c.Locals("user_id").(string)
 	if err := getResumeRepo().AddExperience(e); err != nil {
