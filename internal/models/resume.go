@@ -63,6 +63,7 @@ type Resume struct {
 
 type CompiledResume struct {
 	ResumeDetails  Resume          `json:"resume_details"`
+	User           User            `json:"user"`
 	Experiences    []Experience    `json:"experiences"`
 	Projects       []Project       `json:"projects"`
 	Educations     []Education     `json:"educations"`

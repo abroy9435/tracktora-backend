@@ -189,7 +189,7 @@ func (r *ResumeRepository) SaveResume(res models.Resume) error {
 	sk, _ := json.Marshal(res.SkillIDs)
 	ce, _ := json.Marshal(res.CertificationIDs)
 	query := `INSERT INTO resumes (user_id, resume_name, target_role, summary, experience_ids, project_ids, education_ids, skill_ids, certification_ids) 
-              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
+	          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
 	_, err := r.DB.Exec(context.Background(), query, res.UserID, res.ResumeName, res.TargetRole, res.Summary, ex, pr, ed, sk, ce)
 	return err
 }
@@ -239,7 +239,7 @@ func (r *ResumeRepository) GetCompiledResume(id, userID string) (*models.Compile
 	var c models.CompiledResume
 	var ex, pr, ed, sk, ce []byte
 	query := `SELECT resume_name, target_role, summary, experience_ids, project_ids, education_ids, skill_ids, certification_ids 
-              FROM resumes WHERE id = $1 AND user_id = $2`
+	          FROM resumes WHERE id = $1 AND user_id = $2`
 	err := r.DB.QueryRow(context.Background(), query, id, userID).Scan(&c.ResumeDetails.ResumeName, &c.ResumeDetails.TargetRole, &c.ResumeDetails.Summary, &ex, &pr, &ed, &sk, &ce)
 	if err != nil {
 		return nil, err
@@ -282,6 +282,24 @@ func (r *ResumeRepository) GetCompiledResume(id, userID string) (*models.Compile
 			c.Certifications = append(c.Certifications, cert)
 		}
 	}
+
+	// ---> NEW: HYDRATE THE USER PROFILE (For the PDF Header) <---
+	userQuery := `SELECT username, email, phone, city, state, linkedin_url, github_url, portfolio_url, other_link_name, other_link_url 
+	              FROM users WHERE id = $1`
+
+	// We scan directly into the User struct we added to CompiledResume in models/resume.go
+	_ = r.DB.QueryRow(context.Background(), userQuery, userID).Scan(
+		&c.User.Username,
+		&c.User.Email,
+		&c.User.Phone,
+		&c.User.City,
+		&c.User.State,
+		&c.User.LinkedinURL,
+		&c.User.GithubURL,
+		&c.User.PortfolioURL,
+		&c.User.OtherLinkName,
+		&c.User.OtherLinkURL,
+	)
 
 	return &c, nil
 }

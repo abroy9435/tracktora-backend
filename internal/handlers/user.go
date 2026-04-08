@@ -26,7 +26,7 @@ func GetProfile(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusOK).JSON(user)
 }
 
-// UpdateProfile handles changing user details
+// UpdateProfile handles changing user details dynamically
 func UpdateProfile(c *fiber.Ctx) error {
 	// 1. Grab the secure user_id
 	userID := c.Locals("user_id").(string)
@@ -39,21 +39,14 @@ func UpdateProfile(c *fiber.Ctx) error {
 		})
 	}
 
-	// 3. Quick validation
-	if req.Username == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Username cannot be empty",
-		})
-	}
-
-	// 4. Send to the repository to update PostgreSQL
+	// 3. Send to the repository to update PostgreSQL
 	if err := repository.UpdateUser(userID, req); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": err.Error(),
 		})
 	}
 
-	// 5. Return success!
+	// 4. Return success!
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"message": "Profile updated successfully",
 	})
